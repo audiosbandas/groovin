@@ -1,4 +1,4 @@
-
+CATÁLOGO - ÍNDICE  dinámico según el Orden de las Columnas en la planilla referenciada
 
 
 <!DOCTYPE html>
@@ -86,7 +86,7 @@
 </style>
 </head>
 <body>
- 
+
 <div id="sheet-sync-container">
   <h1>REFERENCIAS TEMAS</h1>
   <div class="sheet-sync-header">
@@ -96,7 +96,7 @@
   <div id="sheet-sync-status"></div>
   <div id="sheet-sync-list"></div>
 </div>
- 
+
 <script>
 (function () {
   // --- Configuración ---
@@ -109,13 +109,17 @@
   const GID = "0";
   const REFRESH_MS = 86400000; // vuelve a sincronizar cada 24 horas
   const URL_REGEX = /^https?:\/\//i;
- 
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
- 
+
+  // "headers=1" le indica explícitamente a Google que la fila 1 es el
+  // encabezado. Sin este parámetro, si la planilla no lo detecta sola,
+  // los encabezados quedan vacíos y la fila 1 se cuela como si fuera
+  // el primer registro de datos.
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}&headers=1`;
+
   const statusEl = document.getElementById("sheet-sync-status");
   const timeEl = document.getElementById("sheet-sync-time");
   const listEl = document.getElementById("sheet-sync-list");
- 
+
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, "&amp;")
@@ -123,7 +127,7 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
- 
+
   // Devuelve el valor de una celda como texto, o "" si está vacía / no existe
   function cellValue(row, colIndex) {
     const cell = row.c[colIndex];
@@ -131,11 +135,11 @@
     const str = String(cell.v).trim();
     return str;
   }
- 
+
   function isUrl(value) {
     return URL_REGEX.test(value);
   }
- 
+
   // A partir de una URL, arma un texto de enlace legible sin depender del
   // nombre de la columna: usa el dominio (sin "www."), que suele bastar
   // para identificar de qué servicio se trata (spotify, youtube, etc).
@@ -147,7 +151,7 @@
       return "Abrir enlace";
     }
   }
- 
+
   function formatValue(value) {
     if (isUrl(value)) {
       const safeUrl = escapeHtml(value);
@@ -156,7 +160,7 @@
     }
     return escapeHtml(value);
   }
- 
+
   async function syncSheet() {
     statusEl.textContent = "Sincronizando...";
     try {
@@ -166,11 +170,11 @@
       const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
       const rows = json.table.rows;
       const cols = json.table.cols;
- 
+
       // Encabezados dinámicos, en el orden en que figuran en la planilla.
       // Si una columna no tiene encabezado, se le pone un nombre genérico.
       const headers = cols.map((c, i) => (c.label && c.label.trim()) || `Columna ${i + 1}`);
- 
+
       listEl.innerHTML = rows
         .map(r => {
           // Arma la lista de campos {header, value} de esta fila, en orden,
@@ -178,7 +182,7 @@
           const fields = headers
             .map((header, i) => ({ header, value: cellValue(r, i) }))
             .filter(f => f.value !== "");
- 
+
           return fields;
         })
         .filter(fields => fields.length > 0) // descarta filas totalmente vacías
@@ -186,15 +190,15 @@
           // La primera columna con dato de la fila se usa como título del
           // registro (posición, no nombre). El resto se lista debajo.
           const [titleField, ...restFields] = fields;
- 
+
           const titleHtml = isUrl(titleField.value)
             ? `<a href="${escapeHtml(titleField.value)}" target="_blank" rel="noopener">${escapeHtml(titleField.value)}</a>`
             : escapeHtml(titleField.value);
- 
+
           const restHtml = restFields
             .map(f => `<span class="extra-field"><strong>${escapeHtml(f.header)}:</strong> ${formatValue(f.value)}</span>`)
             .join("");
- 
+
           return `
             <div class="record">
               <span class="record-title">${titleHtml}</span>
@@ -202,11 +206,11 @@
             </div>`;
         })
         .join("");
- 
+
       if (!listEl.innerHTML) {
         listEl.innerHTML = '<p style="color:#999;font-size:14px;">No se encontraron registros.</p>';
       }
- 
+
       statusEl.textContent = "";
       timeEl.textContent = new Date().toLocaleTimeString();
     } catch (err) {
@@ -214,12 +218,12 @@
       console.error(err);
     }
   }
- 
+
   document.getElementById("sheet-sync-refresh").addEventListener("click", syncSheet);
   syncSheet();
   setInterval(syncSheet, REFRESH_MS);
 })();
 </script>
- 
+
 </body>
 </html>
